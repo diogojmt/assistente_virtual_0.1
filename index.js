@@ -63,6 +63,8 @@ async function startBot() {
     const greetedUsers = {};
     // Armazena se o usuário já recebeu aviso de opção inválida
     const invalidWarned = {};
+    // Armazena se o usuário acabou de receber o menu
+    const justWelcomed = {};
     // Mapeamento dos tipos de documento
     const tiposDocumento = {
       1: "Demonstrativo",
@@ -92,6 +94,7 @@ async function startBot() {
         });
         menu += "\nDigite o número da opção desejada para continuar.";
         await sock.sendMessage(sender, { text: menu });
+        justWelcomed[sender] = true;
         return;
       }
 
@@ -111,15 +114,17 @@ async function startBot() {
               text: "Informe a CHAVE DE ACESSO (SSEChave):",
             });
           }
+          justWelcomed[sender] = false;
           return;
         } else {
-          // Só responde uma vez por mensagem inválida
-          if (!invalidWarned[sender]) {
+          // Só responde uma vez por mensagem inválida e nunca logo após o menu
+          if (!invalidWarned[sender] && !justWelcomed[sender]) {
             await sock.sendMessage(sender, {
               text: "Opção inválida. Por favor, digite o número correspondente ao tipo de documento desejado.",
             });
             invalidWarned[sender] = true;
           }
+          justWelcomed[sender] = false;
           return;
         }
       }
@@ -141,7 +146,14 @@ async function startBot() {
             });
             break;
           case 2:
-            state.data.SSETipoContribuinte = text;
+            // Validação do tipo de contribuinte
+            if (!["1", "2", "3"].includes(text.trim())) {
+              await sock.sendMessage(sender, {
+                text: "Tipo de contribuinte inválido. Por favor, digite 1 para PF/PJ, 2 para IMOVEL ou 3 para EMPRESA.",
+              });
+              return;
+            }
+            state.data.SSETipoContribuinte = text.trim();
             state.step++;
             await sock.sendMessage(sender, {
               text: "Informe a INSCRIÇÃO MUNICIPAL (SSEInscricao):",
