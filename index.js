@@ -65,6 +65,8 @@ async function startBot() {
     const invalidWarned = {};
     // Armazena se o usuário acabou de receber o menu
     const justWelcomed = {};
+    // Armazena se o usuário já foi avisado sobre tipo de contribuinte inválido
+    const tipoContribuinteWarned = {};
     // Mapeamento dos tipos de documento
     const tiposDocumento = {
       1: "Demonstrativo",
@@ -148,11 +150,15 @@ async function startBot() {
           case 2:
             // Validação do tipo de contribuinte
             if (!["1", "2", "3"].includes(text.trim())) {
-              await sock.sendMessage(sender, {
-                text: "Tipo de contribuinte inválido. Por favor, digite 1 para PF/PJ, 2 para IMOVEL ou 3 para EMPRESA.",
-              });
+              if (!tipoContribuinteWarned[sender]) {
+                await sock.sendMessage(sender, {
+                  text: "Tipo de contribuinte inválido. Por favor, digite 1 para PF/PJ, 2 para IMOVEL ou 3 para EMPRESA.",
+                });
+                tipoContribuinteWarned[sender] = true;
+              }
               return;
             }
+            tipoContribuinteWarned[sender] = false;
             state.data.SSETipoContribuinte = text.trim();
             state.step++;
             await sock.sendMessage(sender, {
