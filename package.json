@@ -6,12 +6,18 @@
   "scripts": {
     "start": "node index.js"
   },
-  "keywords": ["whatsapp", "chatbot", "baileys", "nodejs"],
+  "keywords": [
+    "whatsapp",
+    "chatbot",
+    "baileys",
+    "nodejs"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.18",
+    "axios": "^1.7.0",
     "dotenv": "^17.2.1",
-    "axios": "^1.7.0"
+    "qrcode-terminal": "^0.12.0"
   }
 }

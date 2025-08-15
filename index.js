@@ -5,6 +5,7 @@ const {
 } = require("@whiskeysockets/baileys");
 const axios = require("axios");
 require("dotenv").config();
+const qrcode = require("qrcode-terminal");
 
 async function startBot() {
   const { state, saveCreds } = await useMultiFileAuthState("auth_info");
@@ -20,7 +21,7 @@ async function startBot() {
     const { qr } = update;
     if (qr) {
       console.log("QR Code para conexão WhatsApp:");
-      console.log(qr);
+      qrcode.generate(qr, { small: true });
     }
   });
 
