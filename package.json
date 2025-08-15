@@ -1,6 +1,17 @@
 {
+  "name": "assistente-virtual-whatsapp",
+  "version": "1.0.0",
+  "description": "Chatbot WhatsApp para emissão de documentos municipais usando Node.js e Baileys",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": ["whatsapp", "chatbot", "baileys", "nodejs"],
+  "author": "",
+  "license": "MIT",
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.18",
-    "dotenv": "^17.2.1"
+    "dotenv": "^17.2.1",
+    "axios": "^1.7.0"
   }
 }
