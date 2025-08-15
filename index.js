@@ -12,10 +12,17 @@ async function startBot() {
   const sock = makeWASocket({
     version,
     auth: state,
-    printQRInTerminal: true,
   });
 
   sock.ev.on("creds.update", saveCreds);
+  // Exibe QR code manualmente conforme recomendação Baileys
+  sock.ev.on("connection.update", (update) => {
+    const { qr } = update;
+    if (qr) {
+      console.log("QR Code para conexão WhatsApp:");
+      console.log(qr);
+    }
+  });
 
   // Armazena estado de coleta de dados por usuário
   const userStates = {};

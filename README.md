@@ -41,7 +41,7 @@ Este projeto é um chatbot para atendimento via WhatsApp, que permite ao contrib
 
 ## Observações
 
-- Ao iniciar, será exibido um QR Code no terminal. Escaneie com o WhatsApp para conectar.
+- Ao iniciar, será exibido um QR Code no terminal (em texto). Copie e escaneie com o WhatsApp para conectar. Caso não apareça, verifique as instruções no README e no repositório do Baileys.
 - O bot irá apresentar um menu com os tipos de documentos disponíveis e guiar o usuário na coleta dos dados.
 - A chave de acesso está protegida no arquivo `.env`, que não é enviado ao GitHub.
 - Personalize o fluxo e as mensagens editando o arquivo `index.js`.
