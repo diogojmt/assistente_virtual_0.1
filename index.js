@@ -11,10 +11,20 @@ const qrcode = require("qrcode-terminal");
 const http = require("http");
 http
   .createServer((req, res) => {
-    res.writeHead(200);
+    // Log detalhado de cada requisição recebida
+    console.log(
+      `[${new Date().toISOString()}] [HTTP] ${req.method} ${req.url} from ${
+        req.socket.remoteAddress
+      }`
+    );
+    res.writeHead(200, { "Content-Type": "text/plain" });
     res.end("Bot ativo");
   })
-  .listen(3000);
+  .listen(3000, () => {
+    console.log(
+      `[${new Date().toISOString()}] Servidor HTTP ativo na porta 3000.`
+    );
+  });
 
 async function startBot() {
   try {
@@ -51,6 +61,8 @@ async function startBot() {
     const userStates = {};
     // Armazena se o usuário já recebeu boas-vindas
     const greetedUsers = {};
+    // Armazena se o usuário já recebeu aviso de opção inválida
+    const invalidWarned = {};
     // Mapeamento dos tipos de documento
     const tiposDocumento = {
       1: "Demonstrativo",
@@ -101,15 +113,21 @@ async function startBot() {
           }
           return;
         } else {
-          await sock.sendMessage(sender, {
-            text: "Opção inválida. Por favor, digite o número correspondente ao tipo de documento desejado.",
-          });
+          // Só responde uma vez por mensagem inválida
+          if (!invalidWarned[sender]) {
+            await sock.sendMessage(sender, {
+              text: "Opção inválida. Por favor, digite o número correspondente ao tipo de documento desejado.",
+            });
+            invalidWarned[sender] = true;
+          }
           return;
         }
       }
 
       // Fluxo guiado para emissão do documento
       if (userStates[sender]) {
+        // Ao entrar no fluxo guiado, libera o aviso de inválido para o usuário
+        invalidWarned[sender] = false;
         const state = userStates[sender];
         switch (state.step) {
           case 1:
