@@ -1,2 +1,9 @@
-run = "npm start"
+run = "npm run start"
 language = "nodejs"
+modules = ["nodejs-20"]
+
+[deployment]
+run = ["sh", "-c", "npm run start"]
+
+[nix]
+channel = "stable-25_05"

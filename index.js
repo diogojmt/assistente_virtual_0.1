@@ -13,6 +13,7 @@ async function startBot() {
   const sock = makeWASocket({
     version,
     auth: state,
+    // O Baileys já está em modo MD por padrão
   });
 
   sock.ev.on("creds.update", saveCreds);
