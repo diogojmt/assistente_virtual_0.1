@@ -71,16 +71,33 @@ class WhatsAppBot {
   }
 
   async handleNewMessages(sock, messages) {
+    console.log(`[${new Date().toISOString()}] Nova mensagem recebida:`, messages);
+    
     const msg = messages[0];
-    if (!msg.message || msg.key.fromMe) return;
+    if (!msg.message) {
+      console.log("Mensagem sem conteúdo, ignorando");
+      return;
+    }
+    
+    if (msg.key.fromMe) {
+      console.log("Mensagem própria, ignorando");
+      return;
+    }
 
     const sender = msg.key.remoteJid;
     const text = msg.message.conversation || msg.message.extendedTextMessage?.text;
     
-    console.log(`[${new Date().toISOString()}] Mensagem de ${sender}: ${text}`);
+    console.log(`[${new Date().toISOString()}] Sender: ${sender}, Text: ${text}`);
+    
+    if (!text) {
+      console.log("Texto vazio, ignorando");
+      return;
+    }
     
     try {
+      console.log("Chamando messageHandler.handleMessage...");
       await this.messageHandler.handleMessage(sock, sender, text);
+      console.log("messageHandler.handleMessage concluído");
     } catch (error) {
       console.error("Erro ao processar mensagem:", error);
       await sock.sendMessage(sender, {

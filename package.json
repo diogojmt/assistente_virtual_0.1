@@ -5,9 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "start:refactored": "node index_refactored.js",
-    "start:fixed": "node index_fixed.js",
-    "dev": "node index_refactored.js"
+    "dev": "node index.js"
   },
   "keywords": [
     "whatsapp",
