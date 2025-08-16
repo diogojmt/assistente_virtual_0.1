@@ -40,8 +40,11 @@ class WhatsAppBot {
       await this.handleConnectionUpdate(update);
     });
 
-    sock.ev.on("messages.new", async (messages) => {
-      await this.handleNewMessages(sock, messages);
+    sock.ev.on("messages.upsert", async (m) => {
+      const messages = m.messages;
+      if (m.type === 'notify') {
+        await this.handleNewMessages(sock, messages);
+      }
     });
   }
 
