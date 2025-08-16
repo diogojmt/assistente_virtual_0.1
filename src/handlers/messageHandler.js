@@ -1,4 +1,4 @@
-const DocumentService = require('../services/documentService');
+const DocumentService = require("../services/documentService");
 
 class MessageHandler {
   constructor() {
@@ -8,10 +8,10 @@ class MessageHandler {
     this.invalidWarned = {};
     this.justWelcomed = {};
     this.tipoContribuinteWarned = {};
-    
+
     this.tiposDocumento = {
       1: "Demonstrativo",
-      2: "Certidão", 
+      2: "Certidão",
       3: "BCI",
       4: "BCM",
       5: "Alvará de Funcionamento",
@@ -46,29 +46,28 @@ class MessageHandler {
       menu += `${key}️⃣ ${value}\n`;
     });
     menu += "\nDigite o número da opção desejada para continuar.";
-    
+
     await sock.sendMessage(sender, { text: menu });
     this.justWelcomed[sender] = true;
   }
 
   async handleMainMenu(sock, sender, text) {
     if (this.tiposDocumento[text.trim()]) {
-      this.userStates[sender] = { 
-        step: 1, 
-        data: { SSEOperacao: text.trim() } 
+      this.userStates[sender] = {
+        step: 1,
+        data: {
+          SSEOperacao: text.trim(),
+          SSEChave: process.env.SSE_CHAVE || "@C0sS0_@P1", // Fallback para a chave padrão
+        },
       };
-      
-      if (process.env.SSE_CHAVE) {
-        this.userStates[sender].data.SSEChave = process.env.SSE_CHAVE;
-        this.userStates[sender].step = 2;
-        await sock.sendMessage(sender, {
-          text: "Informe o TIPO DE CONTRIBUINTE (1-PF/PJ, 2-IMOVEL, 3-EMPRESA):",
-        });
-      } else {
-        await sock.sendMessage(sender, {
-          text: "Informe a CHAVE DE ACESSO (SSEChave):",
-        });
-      }
+
+      // Pular direto para solicitar CPF/CNPJ para consultar vínculos
+      await sock.sendMessage(sender, {
+        text: `Você escolheu: ${
+          this.tiposDocumento[text.trim()]
+        }\n\nInforme seu CPF ou CNPJ para consultar os vínculos disponíveis:`,
+      });
+
       this.justWelcomed[sender] = false;
     } else {
       if (!this.invalidWarned[sender] && !this.justWelcomed[sender]) {
@@ -84,7 +83,7 @@ class MessageHandler {
   async handleGuidedFlow(sock, sender, text) {
     this.invalidWarned[sender] = false;
     const state = this.userStates[sender];
-    
+
     switch (state.step) {
       case 1:
         await this.handleStep1(sock, sender, text, state);
@@ -92,97 +91,66 @@ class MessageHandler {
       case 2:
         await this.handleStep2(sock, sender, text, state);
         break;
-      case 3:
-        await this.handleStep3(sock, sender, text, state);
-        break;
-      case 4:
-        await this.handleStep4(sock, sender, text, state);
-        break;
       default:
         delete this.userStates[sender];
     }
   }
 
   async handleStep1(sock, sender, text, state) {
-    if (!state.data.SSEChave) {
-      state.data.SSEChave = text;
-    }
-    state.step++;
+    // Agora o step 1 é para consultar vínculos com CPF/CNPJ
+    const cpfCnpj = text.trim();
+
     await sock.sendMessage(sender, {
-      text: "Informe o TIPO DE CONTRIBUINTE (1-PF/PJ, 2-IMOVEL, 3-EMPRESA):",
+      text: "🔍 Consultando vínculos... Aguarde um momento.",
     });
+
+    await this.consultarInscricoes(sock, sender, cpfCnpj, state);
   }
 
   async handleStep2(sock, sender, text, state) {
-    if (!["1", "2", "3"].includes(text.trim())) {
-      if (!this.tipoContribuinteWarned[sender]) {
-        await sock.sendMessage(sender, {
-          text: "Tipo de contribuinte inválido. Por favor, digite 1 para PF/PJ, 2 para IMOVEL ou 3 para EMPRESA.",
-        });
-        this.tipoContribuinteWarned[sender] = true;
-      }
-      return;
-    }
-    
-    this.tipoContribuinteWarned[sender] = false;
-    state.data.SSETipoContribuinte = text.trim();
-    state.step++;
-    
-    if (text.trim() === "1") {
-      await sock.sendMessage(sender, {
-        text: "Informe o CPF ou CNPJ para consultar as inscrições vinculadas:",
-      });
-    } else {
-      await sock.sendMessage(sender, {
-        text: "Informe a INSCRIÇÃO MUNICIPAL (SSEInscricao):",
-      });
-    }
-  }
-
-  async handleStep3(sock, sender, text, state) {
-    if (state.data.SSETipoContribuinte === "1") {
-      await this.consultarInscricoes(sock, sender, text, state);
-    } else {
-      state.data.SSEInscricao = text;
-      await this.emitirDocumento(sock, sender, state);
-    }
-  }
-
-  async handleStep4(sock, sender, text, state) {
+    // Agora o step 2 é para selecionar a inscrição encontrada
     const indiceInscricao = parseInt(text.trim()) - 1;
     if (state.inscricoes && state.inscricoes[indiceInscricao]) {
       state.data.SSEInscricao = state.inscricoes[indiceInscricao];
       await this.emitirDocumento(sock, sender, state);
     } else {
-      await sock.sendMessage(sender, { 
-        text: 'Número inválido. Tente novamente.' 
+      await sock.sendMessage(sender, {
+        text: "Número inválido. Por favor, digite o número correspondente à inscrição desejada.",
       });
     }
   }
 
+  // Removido handleStep3 e handleStep4 - não são mais necessários
+  // O novo fluxo é mais simples: Step1(CPF/CNPJ) -> Step2(Seleção)
+
   async consultarInscricoes(sock, sender, cpfCnpj, state) {
     try {
       state.data.SSECPFCNPJ = cpfCnpj.trim();
-      const inscricoes = await this.documentService.consultarInscricoes(cpfCnpj.trim());
-      
+      const inscricoes = await this.documentService.consultarInscricoes(
+        cpfCnpj.trim()
+      );
+
       if (inscricoes.length > 0) {
-        let msg = 'Inscrições vinculadas encontradas:\n';
+        let msg = "✅ Vínculos encontrados:\n\n";
         inscricoes.forEach((insc, idx) => {
-          msg += `${idx + 1} - ${insc}\n`;
+          msg += `${idx + 1}️⃣ Inscrição: ${insc}\n`;
         });
-        msg += '\nDigite o número da inscrição desejada.';
+        msg +=
+          "\n📝 Digite o número da inscrição desejada para gerar o documento.";
         state.inscricoes = inscricoes;
-        state.step++;
+        state.step = 2; // Próximo step é seleção da inscrição
+        // Determinar tipo de contribuinte automaticamente baseado na quantidade de vínculos
+        state.data.SSETipoContribuinte = inscricoes.length === 1 ? "1" : "3"; // PF/PJ ou EMPRESA
         await sock.sendMessage(sender, { text: msg });
       } else {
-        await sock.sendMessage(sender, { 
-          text: 'Nenhuma inscrição vinculada encontrada para este CPF/CNPJ.' 
+        await sock.sendMessage(sender, {
+          text: "❌ Nenhuma inscrição vinculada encontrada para este CPF/CNPJ.\n\nVerifique se o número está correto e tente novamente.",
         });
         delete this.userStates[sender];
       }
     } catch (error) {
-      await sock.sendMessage(sender, { 
-        text: `Erro ao consultar inscrições: ${error.message}` 
+      await sock.sendMessage(sender, {
+        text: `Erro ao consultar inscrições: ${error.message}`,
       });
       delete this.userStates[sender];
     }
@@ -198,17 +166,20 @@ class MessageHandler {
         state.data.SSECPFCNPJ || ""
       );
 
-      const resultado = await this.documentService.emitirDocumento(dadosDocumento);
-      
+      const resultado = await this.documentService.emitirDocumento(
+        dadosDocumento
+      );
+
       if (resultado.SSACodigo === 0 && resultado.SSALinkDocumento) {
+        const tipoDoc = this.tiposDocumento[state.data.SSEOperacao];
         await sock.sendMessage(sender, {
-          text: `Documento disponível: ${resultado.SSALinkDocumento}\nMensagem: ${resultado.SSAMensagem}`,
+          text: `🎉 *${tipoDoc}* gerado com sucesso!\n\n📄 **Link do documento:** ${resultado.SSALinkDocumento}\n\n✅ Status: ${resultado.SSAMensagem}\n\n_Clique no link acima para visualizar/baixar seu documento._`,
         });
       } else {
         await sock.sendMessage(sender, {
-          text: `Não foi possível emitir o documento. Motivo: ${
+          text: `❌ Não foi possível emitir o documento.\n\n**Motivo:** ${
             resultado.SSAMensagem || "Erro desconhecido"
-          }`,
+          }\n\nTente novamente ou entre em contato com o suporte.`,
         });
       }
     } catch (error) {
@@ -216,7 +187,7 @@ class MessageHandler {
         text: `Erro ao consultar documento: ${error.message}`,
       });
     }
-    
+
     delete this.userStates[sender];
   }
 
