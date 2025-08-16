@@ -4,7 +4,10 @@
   "description": "Chatbot WhatsApp para emissão de documentos municipais usando Node.js e Baileys",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "start:refactored": "node index_refactored.js",
+    "start:fixed": "node index_fixed.js",
+    "dev": "node index_refactored.js"
   },
   "keywords": [
     "whatsapp",
@@ -17,7 +20,9 @@
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.18",
     "axios": "^1.7.0",
-    "dotenv": "^17.2.1",
-    "qrcode-terminal": "^0.12.0"
+    "dotenv": "^16.4.5",
+    "qrcode-terminal": "^0.12.0",
+    "easy-soap-request": "^5.1.0",
+    "xml2js": "^0.6.2"
   }
 }

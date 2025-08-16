@@ -101,17 +101,19 @@ async function startBot() {
       // Menu principal
       if (!userStates[sender]) {
         if (tiposDocumento[text.trim()]) {
-          userStates[sender] = { 
-            step: 2, 
-            data: { 
-              SSEOperacao: text.trim(),
-              SSEChave: process.env.SSE_CHAVE
-            } 
-          };
+          userStates[sender] = { step: 1, data: { SSEOperacao: text.trim() } };
           
-          await sock.sendMessage(sender, {
-            text: "Informe o TIPO DE CONTRIBUINTE (1-PF/PJ, 2-IMOVEL, 3-EMPRESA):",
-          });
+          if (process.env.SSE_CHAVE) {
+            userStates[sender].data.SSEChave = process.env.SSE_CHAVE;
+            userStates[sender].step = 2;
+            await sock.sendMessage(sender, {
+              text: "Informe o TIPO DE CONTRIBUINTE (1-PF/PJ, 2-IMOVEL, 3-EMPRESA):",
+            });
+          } else {
+            await sock.sendMessage(sender, {
+              text: "Informe a CHAVE DE ACESSO (SSEChave):",
+            });
+          }
           justWelcomed[sender] = false;
           return;
         } else {
@@ -132,6 +134,16 @@ async function startBot() {
         const state = userStates[sender];
         
         switch (state.step) {
+          case 1:
+            if (!state.data.SSEChave) {
+              state.data.SSEChave = text;
+            }
+            state.step++;
+            await sock.sendMessage(sender, {
+              text: "Informe o TIPO DE CONTRIBUINTE (1-PF/PJ, 2-IMOVEL, 3-EMPRESA):",
+            });
+            break;
+
           case 2:
             if (!["1", "2", "3"].includes(text.trim())) {
               if (!tipoContribuinteWarned[sender]) {
