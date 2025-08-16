@@ -1,24 +1,42 @@
-# Chatbot WhatsApp com Node.js e Baileys
+# Assistente Virtual Municipal – Chatbot WhatsApp com Node.js e Baileys
 
-Este projeto é um chatbot para atendimento via WhatsApp, que permite ao contribuinte emitir documentos municipais de forma automatizada.
+Este projeto é um exemplo de chatbot para atendimento via WhatsApp, desenvolvido em Node.js utilizando a biblioteca Baileys. Ele automatiza a emissão de documentos municipais, guiando o usuário por um menu interativo e coletando os dados necessários para cada tipo de documento.
+
+## Estrutura do Projeto
+
+```
+assistente_virtual_0.1/
+│
+├── index.js                # Ponto de entrada do bot
+├── package.json            # Dependências e scripts
+├── README.md               # Documentação do projeto
+├── src/
+│   ├── bot/
+│   │   └── whatsappBot.js      # Lógica de integração com o WhatsApp
+│   ├── handlers/
+│   │   └── messageHandler.js   # Manipulação das mensagens e fluxo do usuário
+│   ├── server/
+│   │   └── httpServer.js       # Servidor HTTP (se aplicável)
+│   └── services/
+│       └── documentService.js  # Lógica de emissão dos documentos
+```
 
 ## Funcionalidades
 
-- Menu interativo com os tipos de documentos disponíveis:
-  1️⃣ Demonstrativo
-  2️⃣ Certidão
-  3️⃣ BCI
-  4️⃣ BCM
-  5️⃣ Alvará de Funcionamento
-  6️⃣ VISA
-- Fluxo guiado para coleta dos dados necessários e emissão do documento.
-- Proteção da chave de acesso via arquivo `.env` (não é enviada ao GitHub).
+- Consulta dos vínculos do usuário com a prefeitura:
+  - Empresas e imóveis associados ao CPF/CNPJ informado
+  - Detalhes como endereço, tipo, débitos e proprietário
+- Proteção da chave de acesso via arquivo `.env`.
+- Modularização do código em handlers, serviços e integração com o WhatsApp.
+- Fácil personalização do fluxo e das mensagens.
 
-## Como usar localmente
+> **Atenção:** Esta versão do bot realiza apenas a consulta dos vínculos do usuário com a prefeitura e apresenta essas informações via WhatsApp. A funcionalidade de emissão de documentos estará disponível em uma segunda versão.
+
+## Instalação e Uso Local
 
 1. Instale as dependências:
    ```bash
-   npm install @whiskeysockets/baileys axios dotenv
+   npm install
    ```
 2. Crie um arquivo `.env` na raiz do projeto e adicione sua chave de acesso:
    ```
@@ -29,9 +47,9 @@ Este projeto é um chatbot para atendimento via WhatsApp, que permite ao contrib
    node index.js
    ```
 
-## Como rodar no Replit
+## Execução no Replit
 
-1. Certifique-se de que o arquivo `.replit` está presente com o conteúdo:
+1. Certifique-se de que o arquivo `.replit` está presente com:
    ```
    run = "node index.js"
    language = "nodejs"
@@ -41,19 +59,19 @@ Este projeto é um chatbot para atendimento via WhatsApp, que permite ao contrib
 
 ## Observações
 
-- Ao iniciar, será exibido um QR Code no terminal (em texto). Copie e escaneie com o WhatsApp para conectar. Caso não apareça, verifique as instruções no README e no repositório do Baileys.
-- O bot irá apresentar um menu com os tipos de documentos disponíveis e guiar o usuário na coleta dos dados.
+- Ao iniciar, será exibido um QR Code no terminal. Escaneie com o WhatsApp para conectar.
+- O bot apresenta um menu e guia o usuário na coleta dos dados.
 - A chave de acesso está protegida no arquivo `.env`, que não é enviado ao GitHub.
-- Personalize o fluxo e as mensagens editando o arquivo `index.js`.
+- Personalize o fluxo editando os arquivos em `src/handlers` e `src/services`.
 
-## Sobre o Baileys
+## Tecnologias Utilizadas
 
-Baileys é uma biblioteca Node.js para integração com o WhatsApp Web, permitindo o envio e recebimento de mensagens, arquivos, imagens e automações diversas sem a necessidade de API oficial.
+- Node.js
+- Baileys (WhatsApp Web API)
+- Axios (requisições HTTP)
+- Dotenv (variáveis de ambiente)
 
-Repositório oficial: https://github.com/WhiskeySockets/Baileys
+## Referências
 
-Para suporte, dúvidas e exemplos, consulte:
-
-- Issues e Wiki no repositório oficial
-- Comunidade no GitHub
-- Documentação disponível no próprio repositório
+- [Baileys – Repositório Oficial](https://github.com/WhiskeySockets/Baileys)
+- [Documentação Baileys](https://github.com/WhiskeySockets/Baileys#readme)
