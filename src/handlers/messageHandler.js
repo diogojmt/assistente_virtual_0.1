@@ -19,6 +19,15 @@ class MessageHandler {
     };
   }
 
+  // Converte número para emojis (ex: 10 -> 1️⃣0️⃣)
+  numberToEmojis(num) {
+    const emojiMap = {
+      '0': '0️⃣', '1': '1️⃣', '2': '2️⃣', '3': '3️⃣', '4': '4️⃣',
+      '5': '5️⃣', '6': '6️⃣', '7': '7️⃣', '8': '8️⃣', '9': '9️⃣'
+    };
+    return num.toString().split('').map(digit => emojiMap[digit]).join('');
+  }
+
   async handleMessage(sock, sender, text) {
     if (!text) return;
 
@@ -115,7 +124,7 @@ class MessageHandler {
         msg += `📄 CPF/CNPJ: ${contribuinte.cpfCnpj}\n\n`;
         
         inscricoes.forEach((insc, idx) => {
-          msg += `${idx + 1}️⃣ **${insc.tipo}**: ${insc.inscricao}\n`;
+          msg += `${this.numberToEmojis(idx + 1)} **${insc.tipo}**: ${insc.inscricao}\n`;
           if (insc.subtipo) {
             msg += `   🏷️ ${insc.subtipo}\n`;
           }
