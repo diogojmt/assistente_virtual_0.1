@@ -37,14 +37,69 @@ class DocumentService {
         explicitArray: false 
       });
       
+      console.log("Resposta SOAP completa:", JSON.stringify(result, null, 2));
+      
       let inscricoes = [];
       try {
-        const pertences = result['soapenv:Envelope']['soapenv:Body']['ns1:PWSRetornoPertences.ExecuteResponse']['ns1:PWSRetornoPertences.ExecuteResult']['Pertences']['Pertence'];
-        if (Array.isArray(pertences)) {
-          inscricoes = pertences.map(p => p.Inscricao);
-        } else if (pertences) {
-          inscricoes = [pertences.Inscricao];
+        // Verificar estrutura SOAP básica
+        if (!result || !result['soapenv:Envelope'] || !result['soapenv:Envelope']['soapenv:Body']) {
+          console.error("Estrutura SOAP inválida:", result);
+          return inscricoes;
         }
+
+        const response = result['soapenv:Envelope']['soapenv:Body']['PWSRetornoPertences.ExecuteResponse'];
+        if (!response || !response.Sdtretornopertences) {
+          console.log("Nenhum resultado encontrado para o CPF/CNPJ");
+          return inscricoes;
+        }
+
+        const retornoItems = response.Sdtretornopertences['SDTRetornoPertences.SDTRetornoPertencesItem'];
+        if (!retornoItems) {
+          return inscricoes;
+        }
+
+        // Normalizar para array se vier um único item
+        const items = Array.isArray(retornoItems) ? retornoItems : [retornoItems];
+
+        // Extrair inscrições de empresas e imóveis
+        items.forEach(item => {
+          // Empresas
+          if (item.SDTRetornoPertencesEmpresa && item.SDTRetornoPertencesEmpresa.SDTRetornoPertencesEmpresaItem) {
+            const empresas = Array.isArray(item.SDTRetornoPertencesEmpresa.SDTRetornoPertencesEmpresaItem) 
+              ? item.SDTRetornoPertencesEmpresa.SDTRetornoPertencesEmpresaItem 
+              : [item.SDTRetornoPertencesEmpresa.SDTRetornoPertencesEmpresaItem];
+            
+            empresas.forEach(empresa => {
+              if (empresa.SRPInscricaoEmpresa) {
+                inscricoes.push({
+                  inscricao: empresa.SRPInscricaoEmpresa,
+                  tipo: 'EMPRESA',
+                  endereco: empresa.SRPEnderecoEmpresa || '',
+                  possuiDebito: empresa.SRPPossuiDebitoEmpresa || 'N'
+                });
+              }
+            });
+          }
+
+          // Imóveis
+          if (item.SDTRetornoPertencesImovel && item.SDTRetornoPertencesImovel.SDTRetornoPertencesImovelItem) {
+            const imoveis = Array.isArray(item.SDTRetornoPertencesImovel.SDTRetornoPertencesImovelItem) 
+              ? item.SDTRetornoPertencesImovel.SDTRetornoPertencesImovelItem 
+              : [item.SDTRetornoPertencesImovel.SDTRetornoPertencesImovelItem];
+            
+            imoveis.forEach(imovel => {
+              if (imovel.SRPInscricaoImovel) {
+                inscricoes.push({
+                  inscricao: imovel.SRPInscricaoImovel,
+                  tipo: 'IMOVEL',
+                  endereco: imovel.SRPEnderecoImovel || '',
+                  possuiDebito: imovel.SRPPossuiDebitoImovel || 'N'
+                });
+              }
+            });
+          }
+        });
+
       } catch (e) {
         console.error("Erro ao parsear inscrições:", e);
       }

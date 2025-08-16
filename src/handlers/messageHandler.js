@@ -111,7 +111,7 @@ class MessageHandler {
     // Agora o step 2 é para selecionar a inscrição encontrada
     const indiceInscricao = parseInt(text.trim()) - 1;
     if (state.inscricoes && state.inscricoes[indiceInscricao]) {
-      state.data.SSEInscricao = state.inscricoes[indiceInscricao];
+    state.data.SSEInscricao = state.inscricoes[indiceInscricao].inscricao;
       await this.emitirDocumento(sock, sender, state);
     } else {
       await sock.sendMessage(sender, {
@@ -133,10 +133,17 @@ class MessageHandler {
       if (inscricoes.length > 0) {
         let msg = "✅ Vínculos encontrados:\n\n";
         inscricoes.forEach((insc, idx) => {
-          msg += `${idx + 1}️⃣ Inscrição: ${insc}\n`;
+          msg += `${idx + 1}️⃣ ${insc.tipo}: ${insc.inscricao}\n`;
+          if (insc.endereco) {
+            msg += `   📍 ${insc.endereco}\n`;
+          }
+          if (insc.possuiDebito === 'S') {
+            msg += `   ⚠️ Possui débito\n`;
+          }
+          msg += `\n`;
         });
         msg +=
-          "\n📝 Digite o número da inscrição desejada para gerar o documento.";
+          "📝 Digite o número da inscrição desejada para gerar o documento.";
         state.inscricoes = inscricoes;
         state.step = 2; // Próximo step é seleção da inscrição
         // Determinar tipo de contribuinte automaticamente baseado na quantidade de vínculos
