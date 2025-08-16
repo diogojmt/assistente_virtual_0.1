@@ -119,11 +119,38 @@ class MessageHandler {
 
       if (inscricoes.length > 0) {
         const contribuinte = inscricoes[0].contribuinte; // Dados do contribuinte (mesmo para todos)
+        
+        // Contar vínculos por tipo
+        const empresas = inscricoes.filter(i => i.tipo === 'EMPRESA');
+        const imoveis = inscricoes.filter(i => i.tipo === 'IMÓVEL');
+        const totalVinculos = inscricoes.length;
+        
         let msg = `✅ Vínculos encontrados para:\n`;
         msg += `👤 **${contribuinte.nome}**\n`;
         msg += `📄 CPF/CNPJ: ${contribuinte.cpfCnpj}\n\n`;
         
-        inscricoes.forEach((insc, idx) => {
+        // Resumo dos vínculos
+        msg += `📊 **Resumo**: ${totalVinculos} vínculo${totalVinculos > 1 ? 's' : ''} encontrado${totalVinculos > 1 ? 's' : ''}\n`;
+        if (empresas.length > 0) {
+          msg += `   🏢 ${empresas.length} empresa${empresas.length > 1 ? 's' : ''}\n`;
+        }
+        if (imoveis.length > 0) {
+          msg += `   🏠 ${imoveis.length} imóve${imoveis.length > 1 ? 'is' : 'l'}\n`;
+        }
+        msg += `\n`;
+        
+        // Verificar limite de segurança
+        const LIMITE_EXIBICAO = 20;
+        const vinculos_exibir = inscricoes.slice(0, LIMITE_EXIBICAO);
+        const vinculos_ocultos = totalVinculos - LIMITE_EXIBICAO;
+        
+        if (totalVinculos > LIMITE_EXIBICAO) {
+          msg += `⚠️ **ATENÇÃO**: Por questões de segurança, exibindo apenas os primeiros ${LIMITE_EXIBICAO} vínculos.\n`;
+          msg += `📋 Restam ${vinculos_ocultos} vínculo${vinculos_ocultos > 1 ? 's' : ''} não exibido${vinculos_ocultos > 1 ? 's' : ''}, consulte diretamente na Prefeitura.\n\n`;
+        }
+        
+        // Listar vínculos (limitado a 20)
+        vinculos_exibir.forEach((insc, idx) => {
           msg += `${this.numberToEmojis(idx + 1)} **${insc.tipo}**: ${insc.inscricao}\n`;
           if (insc.subtipo) {
             msg += `   🏷️ ${insc.subtipo}\n`;
@@ -142,6 +169,11 @@ class MessageHandler {
           }
           msg += `\n`;
         });
+        
+        if (totalVinculos > LIMITE_EXIBICAO) {
+          msg += `⚠️ **${vinculos_ocultos} vínculo${vinculos_ocultos > 1 ? 's' : ''} não exibido${vinculos_ocultos > 1 ? 's' : ''}** - consulte na Prefeitura para ver todos.\n\n`;
+        }
+        
         msg += "✅ Consulta concluída com sucesso!";
         await sock.sendMessage(sender, { text: msg });
         delete this.userStates[sender]; // Finalizar sessão após mostrar vínculos
