@@ -40,44 +40,22 @@ class MessageHandler {
 
   async sendWelcomeMessage(sock, sender) {
     this.greetedUsers[sender] = true;
-    let menu = "Olá, seja bem-vindo ao Assistente Virtual da Prefeitura!\n\n";
-    menu += "Escolha o tipo de documento que deseja emitir:\n";
-    Object.entries(this.tiposDocumento).forEach(([key, value]) => {
-      menu += `${key}️⃣ ${value}\n`;
+    await sock.sendMessage(sender, { 
+      text: "Olá! Seja bem-vindo ao Assistente Virtual da Prefeitura!\n\n📋 Digite seu CPF ou CNPJ para consultar os vínculos cadastrados:" 
     });
-    menu += "\nDigite o número da opção desejada para continuar.";
-
-    await sock.sendMessage(sender, { text: menu });
     this.justWelcomed[sender] = true;
   }
 
   async handleMainMenu(sock, sender, text) {
-    if (this.tiposDocumento[text.trim()]) {
-      this.userStates[sender] = {
-        step: 1,
-        data: {
-          SSEOperacao: text.trim(),
-          SSEChave: process.env.SSE_CHAVE || "@C0sS0_@P1", // Fallback para a chave padrão
-        },
-      };
-
-      // Pular direto para solicitar CPF/CNPJ para consultar vínculos
-      await sock.sendMessage(sender, {
-        text: `Você escolheu: ${
-          this.tiposDocumento[text.trim()]
-        }\n\nInforme seu CPF ou CNPJ para consultar os vínculos disponíveis:`,
-      });
-
-      this.justWelcomed[sender] = false;
-    } else {
-      if (!this.invalidWarned[sender] && !this.justWelcomed[sender]) {
-        await sock.sendMessage(sender, {
-          text: "Opção inválida. Por favor, digite o número correspondente ao tipo de documento desejado.",
-        });
-        this.invalidWarned[sender] = true;
-      }
-      this.justWelcomed[sender] = false;
-    }
+    // Iniciar diretamente com consulta de vínculos
+    this.userStates[sender] = {
+      step: 1,
+      data: {},
+      inscricoes: [],
+    };
+    
+    // Processar o CPF/CNPJ fornecido
+    await this.consultarInscricoes(sock, sender, text, this.userStates[sender]);
   }
 
   async handleGuidedFlow(sock, sender, text) {
@@ -131,24 +109,33 @@ class MessageHandler {
       );
 
       if (inscricoes.length > 0) {
-        let msg = "✅ Vínculos encontrados:\n\n";
+        const contribuinte = inscricoes[0].contribuinte; // Dados do contribuinte (mesmo para todos)
+        let msg = `✅ Vínculos encontrados para:\n`;
+        msg += `👤 **${contribuinte.nome}**\n`;
+        msg += `📄 CPF/CNPJ: ${contribuinte.cpfCnpj}\n\n`;
+        
         inscricoes.forEach((insc, idx) => {
-          msg += `${idx + 1}️⃣ ${insc.tipo}: ${insc.inscricao}\n`;
+          msg += `${idx + 1}️⃣ **${insc.tipo}**: ${insc.inscricao}\n`;
+          if (insc.subtipo) {
+            msg += `   🏷️ ${insc.subtipo}\n`;
+          }
+          if (insc.tipoProprietario) {
+            msg += `   👤 Proprietário: ${insc.tipoProprietario}\n`;
+          }
           if (insc.endereco) {
             msg += `   📍 ${insc.endereco}\n`;
           }
           if (insc.possuiDebito === 'S') {
             msg += `   ⚠️ Possui débito\n`;
           }
+          if (insc.debitoSuspenso === 'S') {
+            msg += `   ⏸️ Débito suspenso\n`;
+          }
           msg += `\n`;
         });
-        msg +=
-          "📝 Digite o número da inscrição desejada para gerar o documento.";
-        state.inscricoes = inscricoes;
-        state.step = 2; // Próximo step é seleção da inscrição
-        // Determinar tipo de contribuinte automaticamente baseado na quantidade de vínculos
-        state.data.SSETipoContribuinte = inscricoes.length === 1 ? "1" : "3"; // PF/PJ ou EMPRESA
+        msg += "✅ Consulta concluída com sucesso!";
         await sock.sendMessage(sender, { text: msg });
+        delete this.userStates[sender]; // Finalizar sessão após mostrar vínculos
       } else {
         await sock.sendMessage(sender, {
           text: "❌ Nenhuma inscrição vinculada encontrada para este CPF/CNPJ.\n\nVerifique se o número está correto e tente novamente.",

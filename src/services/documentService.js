@@ -27,11 +27,23 @@ class DocumentService {
     };
     
     try {
+      console.log("Enviando requisição SOAP para:", this.soapUrl);
+      console.log("XML da requisição:", xml);
+      
       const { response } = await soapRequest({ 
         url: this.soapUrl, 
         headers, 
         xml 
       });
+      
+      console.log("Status da resposta:", response.statusCode);
+      console.log("Headers da resposta:", response.headers);
+      console.log("Body da resposta (raw):", response.body);
+      
+      if (!response.body || typeof response.body !== 'string') {
+        console.error("Resposta inválida ou vazia:", response.body);
+        return [];
+      }
       
       const result = await xml2js.parseStringPromise(response.body, { 
         explicitArray: false 
@@ -41,13 +53,16 @@ class DocumentService {
       
       let inscricoes = [];
       try {
-        // Verificar estrutura SOAP básica
-        if (!result || !result['soapenv:Envelope'] || !result['soapenv:Envelope']['soapenv:Body']) {
+        // Verificar estrutura SOAP básica - considerar ambos os namespaces
+        const envelope = result['soapenv:Envelope'] || result['SOAP-ENV:Envelope'];
+        const body = envelope ? (envelope['soapenv:Body'] || envelope['SOAP-ENV:Body']) : null;
+        
+        if (!envelope || !body) {
           console.error("Estrutura SOAP inválida:", result);
           return inscricoes;
         }
 
-        const response = result['soapenv:Envelope']['soapenv:Body']['PWSRetornoPertences.ExecuteResponse'];
+        const response = body['PWSRetornoPertences.ExecuteResponse'];
         if (!response || !response.Sdtretornopertences) {
           console.log("Nenhum resultado encontrado para o CPF/CNPJ");
           return inscricoes;
@@ -61,8 +76,19 @@ class DocumentService {
         // Normalizar para array se vier um único item
         const items = Array.isArray(retornoItems) ? retornoItems : [retornoItems];
 
-        // Extrair inscrições de empresas e imóveis
+        // Extrair informações do contribuinte e vínculos
         items.forEach(item => {
+          // Verificar se CPF/CNPJ é válido
+          if (item.SRPCPFCNPJInvalido === 'S') {
+            throw new Error('CPF/CNPJ inválido');
+          }
+
+          const contribuinte = {
+            nome: item.SRPNomeContribuinte || '',
+            cpfCnpj: item.SRPCPFCNPJContribuinte || '',
+            codigoContribuinte: item.SRPCodigoContribuinte || ''
+          };
+
           // Empresas
           if (item.SDTRetornoPertencesEmpresa && item.SDTRetornoPertencesEmpresa.SDTRetornoPertencesEmpresaItem) {
             const empresas = Array.isArray(item.SDTRetornoPertencesEmpresa.SDTRetornoPertencesEmpresaItem) 
@@ -74,8 +100,11 @@ class DocumentService {
                 inscricoes.push({
                   inscricao: empresa.SRPInscricaoEmpresa,
                   tipo: 'EMPRESA',
+                  subtipo: empresa.SRPAutonomo === 'A' ? 'AUTÔNOMO' : 'EMPRESA',
                   endereco: empresa.SRPEnderecoEmpresa || '',
-                  possuiDebito: empresa.SRPPossuiDebitoEmpresa || 'N'
+                  possuiDebito: empresa.SRPPossuiDebitoEmpresa || 'N',
+                  debitoSuspenso: empresa.SRPDebitoSuspensoEmpresa || 'N',
+                  contribuinte
                 });
               }
             });
@@ -91,9 +120,13 @@ class DocumentService {
               if (imovel.SRPInscricaoImovel) {
                 inscricoes.push({
                   inscricao: imovel.SRPInscricaoImovel,
-                  tipo: 'IMOVEL',
+                  tipo: 'IMÓVEL',
+                  subtipo: imovel.SRPTipoImovel || '',
                   endereco: imovel.SRPEnderecoImovel || '',
-                  possuiDebito: imovel.SRPPossuiDebitoImovel || 'N'
+                  possuiDebito: imovel.SRPPossuiDebitoImovel || 'N',
+                  debitoSuspenso: imovel.SRPDebitoSuspensoImovel || 'N',
+                  tipoProprietario: imovel.SRPTipoProprietario || '',
+                  contribuinte
                 });
               }
             });
