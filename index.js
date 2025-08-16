@@ -5,6 +5,7 @@ const {
 } = require("@whiskeysockets/baileys");
 const axios = require("axios");
 require("dotenv").config();
+console.log("SSE_CHAVE:", process.env.SSE_CHAVE);
 const qrcode = require("qrcode-terminal");
 
 // Servidor HTTP para manter o processo ativo
