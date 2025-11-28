@@ -166,7 +166,7 @@ class MessageHandler {
       await sock.sendMessage(sender, {
         text: "👋 Atendimento encerrado. Obrigado por utilizar nosso serviço!\n\nSe precisar de algo, é só me chamar novamente."
       });
-      delete this.userStates[sender];
+      this.resetUserState(sender);
     } else {
       await sock.sendMessage(sender, {
         text: "❌ Opção inválida. Digite 1 para emitir documento ou 2 para encerrar."
@@ -365,7 +365,7 @@ class MessageHandler {
         await sock.sendMessage(sender, {
           text: "❌ Nenhuma inscrição vinculada encontrada para este CPF/CNPJ.\n\nVerifique se o número está correto e tente novamente.",
         });
-        delete this.userStates[sender];
+        this.resetUserState(sender);
       }
     } catch (error) {
       await sock.sendMessage(sender, {
@@ -478,7 +478,7 @@ class MessageHandler {
       await sock.sendMessage(sender, {
         text: "👋 Atendimento encerrado. Obrigado por utilizar nosso serviço!\n\nSe precisar de algo, é só me chamar novamente."
       });
-      delete this.userStates[sender];
+      this.resetUserState(sender);
 
     } else {
       await sock.sendMessage(sender, {
