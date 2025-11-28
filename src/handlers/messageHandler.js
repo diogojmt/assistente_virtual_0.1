@@ -145,8 +145,8 @@ class MessageHandler {
       state.data.SSEInscricao = inscricaoSelecionada.inscricao;
       state.data.inscricaoSelecionada = inscricaoSelecionada;
 
-      // Determinar tipo de contribuinte
-      state.data.SSETipoContribuinte = inscricaoSelecionada.tipo === 'EMPRESA' ? 'M' : 'I';
+      // Determinar tipo de contribuinte (1 - PF/PJ | 2 - IMOVEL | 3 - EMPRESA)
+      state.data.SSETipoContribuinte = inscricaoSelecionada.tipo === 'EMPRESA' ? '3' : '2';
 
       // Mostrar menu de tipos de documento
       let msg = `📄 *Vínculo selecionado:*\n`;
