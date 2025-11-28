@@ -242,32 +242,34 @@ class MessageHandler {
     }
 
     if (tipoDocumento >= 1 && tipoDocumento <= 5) {
-      state.data.SSEOperacao = tipoDocumento.toString();
-
-      // Mapear chaves por tipo de documento
-      // Para EMPRESA: 1=Demonstrativo, 2=Certidão, 3=BCM, 4=Alvará, 5=VISA
-      // Para IMÓVEL: 1=Demonstrativo, 2=Certidão, 3=BCI
+      // Mapear número do menu para código da API e chave
+      // Menu EMPRESA: 1=Demo, 2=Certidão, 3=BCM, 4=Alvará, 5=VISA
+      // API espera: 1=Demo, 2=Certidão, 4=BCM, 5=Alvará, 6=VISA
       const tipoVinculo = state.data.inscricaoSelecionada.tipo;
+      let operacaoAPI = '';
       let chave = '';
 
       if (tipoVinculo === 'EMPRESA') {
-        const chavesEmpresa = {
-          1: 'DC', // Demonstrativo
-          2: 'CR', // Certidão
-          3: 'BC', // BCM
-          4: 'AL', // Alvará
-          5: 'VS'  // VISA
+        const mapeamentoEmpresa = {
+          1: { operacao: '1', chave: 'DC' }, // Demonstrativo
+          2: { operacao: '2', chave: 'CR' }, // Certidão
+          3: { operacao: '4', chave: 'BC' }, // BCM (API usa código 4)
+          4: { operacao: '5', chave: 'AL' }, // Alvará (API usa código 5)
+          5: { operacao: '6', chave: 'VS' }  // VISA (API usa código 6)
         };
-        chave = chavesEmpresa[tipoDocumento];
+        operacaoAPI = mapeamentoEmpresa[tipoDocumento].operacao;
+        chave = mapeamentoEmpresa[tipoDocumento].chave;
       } else if (tipoVinculo === 'IMÓVEL') {
-        const chavesImovel = {
-          1: 'DC', // Demonstrativo
-          2: 'CR', // Certidão
-          3: 'BC'  // BCI
+        const mapeamentoImovel = {
+          1: { operacao: '1', chave: 'DC' }, // Demonstrativo
+          2: { operacao: '2', chave: 'CR' }, // Certidão
+          3: { operacao: '3', chave: 'BC' }  // BCI (API usa código 3)
         };
-        chave = chavesImovel[tipoDocumento];
+        operacaoAPI = mapeamentoImovel[tipoDocumento].operacao;
+        chave = mapeamentoImovel[tipoDocumento].chave;
       }
 
+      state.data.SSEOperacao = operacaoAPI;
       state.data.SSEChave = chave;
 
       // Nome do documento baseado no tipo e vínculo
