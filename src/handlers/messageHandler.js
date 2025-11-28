@@ -162,14 +162,25 @@ class MessageHandler {
       await sock.sendMessage(sender, { text: msg });
       state.step = 3; // Próximo: selecionar vínculo
     } else if (opcao === 2) {
-      // Não, encerrar
+      // Consultar outro CPF/CNPJ
+      await sock.sendMessage(sender, {
+        text: "📋 Digite o CPF ou CNPJ para consultar os vínculos:"
+      });
+
+      // Resetar estado mas manter usuário saudado
+      state.step = 1;
+      state.data = {};
+      state.inscricoes = [];
+
+    } else if (opcao === 3) {
+      // Encerrar atendimento
       await sock.sendMessage(sender, {
         text: "👋 Atendimento encerrado. Obrigado por utilizar nosso serviço!\n\nSe precisar de algo, é só me chamar novamente."
       });
       this.resetUserState(sender);
     } else {
       await sock.sendMessage(sender, {
-        text: "❌ Opção inválida. Digite 1 para emitir documento ou 2 para encerrar."
+        text: "❌ Opção inválida. Digite 1, 2 ou 3."
       });
     }
   }
@@ -354,7 +365,8 @@ class MessageHandler {
         msg += "✅ Consulta concluída com sucesso!\n\n";
         msg += "📄 *Deseja emitir algum documento?*\n\n";
         msg += "1️⃣ - Sim, emitir documento\n";
-        msg += "2️⃣ - Não, encerrar atendimento";
+        msg += "2️⃣ - Consultar outro CPF/CNPJ\n";
+        msg += "3️⃣ - Não, encerrar atendimento";
 
         await sock.sendMessage(sender, { text: msg });
 
