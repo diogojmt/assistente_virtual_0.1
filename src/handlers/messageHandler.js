@@ -19,6 +19,34 @@ class MessageHandler {
     };
   }
 
+  // Retorna documentos disponíveis por tipo de vínculo
+  getDocumentosDisponiveis(tipoVinculo) {
+    if (tipoVinculo === 'IMÓVEL') {
+      return [
+        { id: 1, nome: "Demonstrativo" },
+        { id: 2, nome: "Certidão" },
+        { id: 3, nome: "BCI (Boletim de Cadastro Imobiliário)" }
+      ];
+    } else if (tipoVinculo === 'EMPRESA') {
+      return [
+        { id: 1, nome: "Demonstrativo" },
+        { id: 2, nome: "Certidão" },
+        { id: 4, nome: "BCM (Boletim de Cadastro Mercantil)" },
+        { id: 5, nome: "Alvará de Funcionamento" },
+        { id: 6, nome: "VISA" }
+      ];
+    }
+    // Fallback para todos
+    return [
+      { id: 1, nome: "Demonstrativo" },
+      { id: 2, nome: "Certidão" },
+      { id: 3, nome: "BCI (Boletim de Cadastro Imobiliário)" },
+      { id: 4, nome: "BCM (Boletim de Cadastro Mercantil)" },
+      { id: 5, nome: "Alvará de Funcionamento" },
+      { id: 6, nome: "VISA" }
+    ];
+  }
+
   // Converte número para emojis (ex: 10 -> 1️⃣0️⃣)
   numberToEmojis(num) {
     const emojiMap = {
@@ -151,17 +179,26 @@ class MessageHandler {
       // Determinar tipo de contribuinte (1 - PF/PJ | 2 - IMOVEL | 3 - EMPRESA)
       state.data.SSETipoContribuinte = inscricaoSelecionada.tipo === 'EMPRESA' ? '3' : '2';
 
+      // Obter documentos disponíveis para o tipo de vínculo
+      const documentosDisponiveis = this.getDocumentosDisponiveis(inscricaoSelecionada.tipo);
+      state.data.documentosDisponiveis = documentosDisponiveis;
+
       // Mostrar menu de tipos de documento
       let msg = `📄 *Vínculo selecionado:*\n`;
-      msg += `${inscricaoSelecionada.tipo}: ${inscricaoSelecionada.inscricao}\n\n`;
-      msg += `*Selecione o tipo de documento:*\n\n`;
-      msg += `1️⃣ - Demonstrativo\n`;
-      msg += `2️⃣ - Certidão\n`;
-      msg += `3️⃣ - BCI (Boletim de Cadastro Imobiliário)\n`;
-      msg += `4️⃣ - BCM (Boletim de Cadastro Mercantil)\n`;
-      msg += `5️⃣ - Alvará de Funcionamento\n`;
-      msg += `6️⃣ - VISA\n\n`;
-      msg += `💬 Digite o número do documento desejado:`;
+      msg += `${inscricaoSelecionada.tipo}: ${inscricaoSelecionada.inscricao}\n`;
+
+      // Avisar sobre débitos
+      if (inscricaoSelecionada.possuiDebito === 'S') {
+        msg += `\n⚠️ *ATENÇÃO:* Este vínculo possui débito. Alguns documentos podem não ser emitidos.\n`;
+      }
+
+      msg += `\n*Selecione o tipo de documento:*\n\n`;
+
+      documentosDisponiveis.forEach(doc => {
+        msg += `${this.numberToEmojis(doc.id)} - ${doc.nome}\n`;
+      });
+
+      msg += `\n💬 Digite o número do documento desejado:`;
 
       await sock.sendMessage(sender, { text: msg });
       state.step = 4; // Próximo: selecionar tipo de documento
@@ -175,6 +212,30 @@ class MessageHandler {
   async handleStep4(sock, sender, text, state) {
     // Seleção do tipo de documento
     const tipoDocumento = parseInt(text.trim());
+
+    // Verificar se o documento está disponível para este tipo de vínculo
+    const documentosDisponiveis = state.data.documentosDisponiveis || [];
+    const docDisponivel = documentosDisponiveis.find(doc => doc.id === tipoDocumento);
+
+    if (!docDisponivel) {
+      const tipoVinculo = state.data.inscricaoSelecionada.tipo;
+      let mensagemErro = `❌ Este documento não está disponível para vínculos do tipo ${tipoVinculo}.\n\n`;
+
+      if (tipoDocumento === 3 && tipoVinculo === 'EMPRESA') {
+        mensagemErro += `ℹ️ *BCI (Boletim de Cadastro Imobiliário)* só pode ser emitido para IMÓVEIS.\n`;
+        mensagemErro += `Para empresas, utilize o *BCM (Boletim de Cadastro Mercantil)*.\n\n`;
+      } else if ([4, 5, 6].includes(tipoDocumento) && tipoVinculo === 'IMÓVEL') {
+        mensagemErro += `ℹ️ Este documento só pode ser emitido para EMPRESAS.\n\n`;
+      }
+
+      mensagemErro += `Documentos disponíveis:\n`;
+      documentosDisponiveis.forEach(doc => {
+        mensagemErro += `${this.numberToEmojis(doc.id)} - ${doc.nome}\n`;
+      });
+
+      await sock.sendMessage(sender, { text: mensagemErro });
+      return;
+    }
 
     if (tipoDocumento >= 1 && tipoDocumento <= 6) {
       state.data.SSEOperacao = tipoDocumento.toString();
@@ -198,7 +259,7 @@ class MessageHandler {
       await this.emitirDocumento(sock, sender, state);
     } else {
       await sock.sendMessage(sender, {
-        text: "❌ Opção inválida. Digite um número de 1 a 6 para selecionar o tipo de documento."
+        text: "❌ Opção inválida. Digite um número válido para selecionar o tipo de documento."
       });
     }
   }
@@ -346,17 +407,23 @@ class MessageHandler {
     if (opcao === 1) {
       // Emitir outro documento para o mesmo vínculo
       const inscricaoSelecionada = state.data.inscricaoSelecionada;
+      const documentosDisponiveis = state.data.documentosDisponiveis || this.getDocumentosDisponiveis(inscricaoSelecionada.tipo);
 
       let msg = `📄 *Vínculo selecionado:*\n`;
-      msg += `${inscricaoSelecionada.tipo}: ${inscricaoSelecionada.inscricao}\n\n`;
-      msg += `*Selecione o tipo de documento:*\n\n`;
-      msg += `1️⃣ - Demonstrativo\n`;
-      msg += `2️⃣ - Certidão\n`;
-      msg += `3️⃣ - BCI (Boletim de Cadastro Imobiliário)\n`;
-      msg += `4️⃣ - BCM (Boletim de Cadastro Mercantil)\n`;
-      msg += `5️⃣ - Alvará de Funcionamento\n`;
-      msg += `6️⃣ - VISA\n\n`;
-      msg += `💬 Digite o número do documento desejado:`;
+      msg += `${inscricaoSelecionada.tipo}: ${inscricaoSelecionada.inscricao}\n`;
+
+      // Avisar sobre débitos
+      if (inscricaoSelecionada.possuiDebito === 'S') {
+        msg += `\n⚠️ *ATENÇÃO:* Este vínculo possui débito. Alguns documentos podem não ser emitidos.\n`;
+      }
+
+      msg += `\n*Selecione o tipo de documento:*\n\n`;
+
+      documentosDisponiveis.forEach(doc => {
+        msg += `${this.numberToEmojis(doc.id)} - ${doc.nome}\n`;
+      });
+
+      msg += `\n💬 Digite o número do documento desejado:`;
 
       await sock.sendMessage(sender, { text: msg });
       state.step = 4; // Voltar para seleção de tipo de documento
