@@ -49,8 +49,8 @@ class MessageHandler {
 
   async sendWelcomeMessage(sock, sender) {
     this.greetedUsers[sender] = true;
-    await sock.sendMessage(sender, { 
-      text: "Olá! Seja bem-vindo ao Assistente Virtual da Prefeitura!\n\n📋 Digite seu CPF ou CNPJ para consultar os vínculos cadastrados:" 
+    await sock.sendMessage(sender, {
+      text: "Olá! Seja bem-vindo ao Assistente Virtual da Prefeitura!\n\n📋 Digite seu CPF ou CNPJ para consultar os vínculos cadastrados:"
     });
     this.justWelcomed[sender] = true;
   }
@@ -62,7 +62,7 @@ class MessageHandler {
       data: {},
       inscricoes: [],
     };
-    
+
     // Processar o CPF/CNPJ fornecido
     await this.consultarInscricoes(sock, sender, text, this.userStates[sender]);
   }
@@ -77,6 +77,12 @@ class MessageHandler {
         break;
       case 2:
         await this.handleStep2(sock, sender, text, state);
+        break;
+      case 3:
+        await this.handleStep3(sock, sender, text, state);
+        break;
+      case 4:
+        await this.handleStep4(sock, sender, text, state);
         break;
       default:
         delete this.userStates[sender];
@@ -95,20 +101,104 @@ class MessageHandler {
   }
 
   async handleStep2(sock, sender, text, state) {
-    // Agora o step 2 é para selecionar a inscrição encontrada
-    const indiceInscricao = parseInt(text.trim()) - 1;
-    if (state.inscricoes && state.inscricoes[indiceInscricao]) {
-    state.data.SSEInscricao = state.inscricoes[indiceInscricao].inscricao;
-      await this.emitirDocumento(sock, sender, state);
+    // Pergunta se quer emitir documento
+    const opcao = parseInt(text.trim());
+
+    if (opcao === 1) {
+      // Sim, emitir documento
+      let msg = "📋 *Selecione o vínculo para emitir documento:*\n\n";
+
+      const LIMITE_EXIBICAO = 20;
+      const vinculos_exibir = state.inscricoes.slice(0, LIMITE_EXIBICAO);
+
+      vinculos_exibir.forEach((insc, idx) => {
+        msg += `${this.numberToEmojis(idx + 1)} - ${insc.tipo}: ${insc.inscricao}`;
+        if (insc.endereco) {
+          msg += ` - ${insc.endereco.substring(0, 50)}${insc.endereco.length > 50 ? '...' : ''}`;
+        }
+        msg += `\n`;
+      });
+
+      msg += `\n💬 Digite o número do vínculo:`;
+
+      await sock.sendMessage(sender, { text: msg });
+      state.step = 3; // Próximo: selecionar vínculo
+    } else if (opcao === 2) {
+      // Não, encerrar
+      await sock.sendMessage(sender, {
+        text: "👋 Atendimento encerrado. Obrigado por utilizar nosso serviço!\n\nSe precisar de algo, é só me chamar novamente."
+      });
+      delete this.userStates[sender];
     } else {
       await sock.sendMessage(sender, {
-        text: "Número inválido. Por favor, digite o número correspondente à inscrição desejada.",
+        text: "❌ Opção inválida. Digite 1 para emitir documento ou 2 para encerrar."
       });
     }
   }
 
-  // Removido handleStep3 e handleStep4 - não são mais necessários
-  // O novo fluxo é mais simples: Step1(CPF/CNPJ) -> Step2(Seleção)
+  async handleStep3(sock, sender, text, state) {
+    // Seleção do vínculo
+    const indiceInscricao = parseInt(text.trim()) - 1;
+
+    if (state.inscricoes && state.inscricoes[indiceInscricao]) {
+      const inscricaoSelecionada = state.inscricoes[indiceInscricao];
+      state.data.SSEInscricao = inscricaoSelecionada.inscricao;
+      state.data.inscricaoSelecionada = inscricaoSelecionada;
+
+      // Determinar tipo de contribuinte
+      state.data.SSETipoContribuinte = inscricaoSelecionada.tipo === 'EMPRESA' ? 'M' : 'I';
+
+      // Mostrar menu de tipos de documento
+      let msg = `📄 *Vínculo selecionado:*\n`;
+      msg += `${inscricaoSelecionada.tipo}: ${inscricaoSelecionada.inscricao}\n\n`;
+      msg += `*Selecione o tipo de documento:*\n\n`;
+      msg += `1️⃣ - Demonstrativo\n`;
+      msg += `2️⃣ - Certidão\n`;
+      msg += `3️⃣ - BCI (Boletim de Cadastro Imobiliário)\n`;
+      msg += `4️⃣ - BCM (Boletim de Cadastro Mercantil)\n`;
+      msg += `5️⃣ - Alvará de Funcionamento\n`;
+      msg += `6️⃣ - VISA\n\n`;
+      msg += `💬 Digite o número do documento desejado:`;
+
+      await sock.sendMessage(sender, { text: msg });
+      state.step = 4; // Próximo: selecionar tipo de documento
+    } else {
+      await sock.sendMessage(sender, {
+        text: "❌ Número inválido. Digite o número correspondente ao vínculo desejado."
+      });
+    }
+  }
+
+  async handleStep4(sock, sender, text, state) {
+    // Seleção do tipo de documento
+    const tipoDocumento = parseInt(text.trim());
+
+    if (tipoDocumento >= 1 && tipoDocumento <= 6) {
+      state.data.SSEOperacao = tipoDocumento.toString();
+
+      // Mapear chaves por tipo de documento
+      const chaves = {
+        1: 'DC', // Demonstrativo
+        2: 'CR', // Certidão
+        3: 'BC', // BCI
+        4: 'BC', // BCM
+        5: 'AL', // Alvará
+        6: 'VS'  // VISA
+      };
+
+      state.data.SSEChave = chaves[tipoDocumento];
+
+      await sock.sendMessage(sender, {
+        text: `📝 Gerando ${this.tiposDocumento[tipoDocumento]}... Aguarde um momento.`
+      });
+
+      await this.emitirDocumento(sock, sender, state);
+    } else {
+      await sock.sendMessage(sender, {
+        text: "❌ Opção inválida. Digite um número de 1 a 6 para selecionar o tipo de documento."
+      });
+    }
+  }
 
   async consultarInscricoes(sock, sender, cpfCnpj, state) {
     try {
@@ -119,16 +209,16 @@ class MessageHandler {
 
       if (inscricoes.length > 0) {
         const contribuinte = inscricoes[0].contribuinte; // Dados do contribuinte (mesmo para todos)
-        
+
         // Contar vínculos por tipo
         const empresas = inscricoes.filter(i => i.tipo === 'EMPRESA');
         const imoveis = inscricoes.filter(i => i.tipo === 'IMÓVEL');
         const totalVinculos = inscricoes.length;
-        
+
         let msg = `✅ Vínculos encontrados para:\n`;
         msg += `👤 **${contribuinte.nome}**\n`;
         msg += `📄 CPF/CNPJ: ${contribuinte.cpfCnpj}\n\n`;
-        
+
         // Resumo dos vínculos
         msg += `📊 **Resumo**: ${totalVinculos} vínculo${totalVinculos > 1 ? 's' : ''} encontrado${totalVinculos > 1 ? 's' : ''}\n`;
         if (empresas.length > 0) {
@@ -138,17 +228,17 @@ class MessageHandler {
           msg += `   🏠 ${imoveis.length} imóve${imoveis.length > 1 ? 'is' : 'l'}\n`;
         }
         msg += `\n`;
-        
+
         // Verificar limite de segurança
         const LIMITE_EXIBICAO = 20;
         const vinculos_exibir = inscricoes.slice(0, LIMITE_EXIBICAO);
         const vinculos_ocultos = totalVinculos - LIMITE_EXIBICAO;
-        
+
         if (totalVinculos > LIMITE_EXIBICAO) {
           msg += `⚠️ **ATENÇÃO**: Por questões de segurança, exibindo apenas os primeiros ${LIMITE_EXIBICAO} vínculos.\n`;
           msg += `📋 Restam ${vinculos_ocultos} vínculo${vinculos_ocultos > 1 ? 's' : ''} não exibido${vinculos_ocultos > 1 ? 's' : ''}, consulte diretamente na Prefeitura.\n\n`;
         }
-        
+
         // Listar vínculos (limitado a 20)
         vinculos_exibir.forEach((insc, idx) => {
           msg += `${this.numberToEmojis(idx + 1)} **${insc.tipo}**: ${insc.inscricao}\n`;
@@ -169,14 +259,21 @@ class MessageHandler {
           }
           msg += `\n`;
         });
-        
+
         if (totalVinculos > LIMITE_EXIBICAO) {
           msg += `⚠️ **${vinculos_ocultos} vínculo${vinculos_ocultos > 1 ? 's' : ''} não exibido${vinculos_ocultos > 1 ? 's' : ''}** - consulte na Prefeitura para ver todos.\n\n`;
         }
-        
-        msg += "✅ Consulta concluída com sucesso!";
+
+        msg += "✅ Consulta concluída com sucesso!\n\n";
+        msg += "📄 *Deseja emitir algum documento?*\n\n";
+        msg += "1️⃣ - Sim, emitir documento\n";
+        msg += "2️⃣ - Não, encerrar atendimento";
+
         await sock.sendMessage(sender, { text: msg });
-        delete this.userStates[sender]; // Finalizar sessão após mostrar vínculos
+
+        // Armazenar inscrições e ir para próximo step
+        state.inscricoes = inscricoes;
+        state.step = 2; // Pergunta se quer emitir documento
       } else {
         await sock.sendMessage(sender, {
           text: "❌ Nenhuma inscrição vinculada encontrada para este CPF/CNPJ.\n\nVerifique se o número está correto e tente novamente.",
@@ -212,9 +309,8 @@ class MessageHandler {
         });
       } else {
         await sock.sendMessage(sender, {
-          text: `❌ Não foi possível emitir o documento.\n\n**Motivo:** ${
-            resultado.SSAMensagem || "Erro desconhecido"
-          }\n\nTente novamente ou entre em contato com o suporte.`,
+          text: `❌ Não foi possível emitir o documento.\n\n**Motivo:** ${resultado.SSAMensagem || "Erro desconhecido"
+            }\n\nTente novamente ou entre em contato com o suporte.`,
         });
       }
     } catch (error) {
