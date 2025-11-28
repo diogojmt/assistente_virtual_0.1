@@ -84,6 +84,9 @@ class MessageHandler {
       case 4:
         await this.handleStep4(sock, sender, text, state);
         break;
+      case 5:
+        await this.handleStep5(sock, sender, text, state);
+        break;
       default:
         delete this.userStates[sender];
     }
@@ -307,19 +310,80 @@ class MessageHandler {
         await sock.sendMessage(sender, {
           text: `🎉 *${tipoDoc}* gerado com sucesso!\n\n📄 **Link do documento:** ${resultado.SSALinkDocumento}\n\n✅ Status: ${resultado.SSAMensagem}\n\n_Clique no link acima para visualizar/baixar seu documento._`,
         });
+
+        // Mostrar menu pós-emissão
+        await this.mostrarMenuPosEmissao(sock, sender, state);
       } else {
         await sock.sendMessage(sender, {
           text: `❌ Não foi possível emitir o documento.\n\n**Motivo:** ${resultado.SSAMensagem || "Erro desconhecido"
             }\n\nTente novamente ou entre em contato com o suporte.`,
         });
+
+        // Mostrar menu pós-emissão mesmo em caso de erro
+        await this.mostrarMenuPosEmissao(sock, sender, state);
       }
     } catch (error) {
       await sock.sendMessage(sender, {
         text: `Erro ao consultar documento: ${error.message}`,
       });
+      delete this.userStates[sender];
     }
+  }
 
-    delete this.userStates[sender];
+  async mostrarMenuPosEmissao(sock, sender, state) {
+    const msg = `\n📋 *O que deseja fazer agora?*\n\n` +
+      `1️⃣ - Emitir outro documento (mesmo vínculo)\n` +
+      `2️⃣ - Consultar outro CPF/CNPJ\n` +
+      `3️⃣ - Encerrar atendimento`;
+
+    await sock.sendMessage(sender, { text: msg });
+    state.step = 5; // Menu pós-emissão
+  }
+
+  async handleStep5(sock, sender, text, state) {
+    const opcao = parseInt(text.trim());
+
+    if (opcao === 1) {
+      // Emitir outro documento para o mesmo vínculo
+      const inscricaoSelecionada = state.data.inscricaoSelecionada;
+
+      let msg = `📄 *Vínculo selecionado:*\n`;
+      msg += `${inscricaoSelecionada.tipo}: ${inscricaoSelecionada.inscricao}\n\n`;
+      msg += `*Selecione o tipo de documento:*\n\n`;
+      msg += `1️⃣ - Demonstrativo\n`;
+      msg += `2️⃣ - Certidão\n`;
+      msg += `3️⃣ - BCI (Boletim de Cadastro Imobiliário)\n`;
+      msg += `4️⃣ - BCM (Boletim de Cadastro Mercantil)\n`;
+      msg += `5️⃣ - Alvará de Funcionamento\n`;
+      msg += `6️⃣ - VISA\n\n`;
+      msg += `💬 Digite o número do documento desejado:`;
+
+      await sock.sendMessage(sender, { text: msg });
+      state.step = 4; // Voltar para seleção de tipo de documento
+
+    } else if (opcao === 2) {
+      // Nova consulta de CPF/CNPJ
+      await sock.sendMessage(sender, {
+        text: "📋 Digite o CPF ou CNPJ para consultar os vínculos:"
+      });
+
+      // Resetar estado mas manter usuário saudado
+      state.step = 1;
+      state.data = {};
+      state.inscricoes = [];
+
+    } else if (opcao === 3) {
+      // Encerrar atendimento
+      await sock.sendMessage(sender, {
+        text: "👋 Atendimento encerrado. Obrigado por utilizar nosso serviço!\n\nSe precisar de algo, é só me chamar novamente."
+      });
+      delete this.userStates[sender];
+
+    } else {
+      await sock.sendMessage(sender, {
+        text: "❌ Opção inválida. Digite 1, 2 ou 3."
+      });
+    }
   }
 
   resetUserState(sender) {
