@@ -8,15 +8,6 @@ class MessageHandler {
     this.invalidWarned = {};
     this.justWelcomed = {};
     this.tipoContribuinteWarned = {};
-
-    this.tiposDocumento = {
-      1: "Demonstrativo",
-      2: "Certidão",
-      3: "BCI",
-      4: "BCM",
-      5: "Alvará de Funcionamento",
-      6: "VISA",
-    };
   }
 
   // Retorna documentos disponíveis por tipo de vínculo
@@ -31,9 +22,9 @@ class MessageHandler {
       return [
         { id: 1, nome: "Demonstrativo" },
         { id: 2, nome: "Certidão" },
-        { id: 4, nome: "BCM (Boletim de Cadastro Mercantil)" },
-        { id: 5, nome: "Alvará de Funcionamento" },
-        { id: 6, nome: "VISA" }
+        { id: 3, nome: "BCM (Boletim de Cadastro Mercantil)" },
+        { id: 4, nome: "Alvará de Funcionamento" },
+        { id: 5, nome: "VISA" }
       ];
     }
     // Fallback para todos
@@ -54,6 +45,21 @@ class MessageHandler {
       '5': '5️⃣', '6': '6️⃣', '7': '7️⃣', '8': '8️⃣', '9': '9️⃣'
     };
     return num.toString().split('').map(digit => emojiMap[digit]).join('');
+  }
+
+  // Normaliza formatação de endereços (garante que termine com estado se disponível)
+  normalizarEndereco(endereco) {
+    if (!endereco) return '';
+
+    // Remove espaços extras e barras duplicadas
+    let enderecoNorm = endereco.trim().replace(/\/+$/, '');
+
+    // Se não termina com /AL, /PE, etc (2 letras maiúsculas), adiciona /AL como padrão
+    if (!/\/[A-Z]{2}$/.test(enderecoNorm)) {
+      enderecoNorm += '/AL';
+    }
+
+    return enderecoNorm;
   }
 
   async handleMessage(sock, sender, text) {
@@ -145,7 +151,8 @@ class MessageHandler {
       vinculos_exibir.forEach((insc, idx) => {
         msg += `${this.numberToEmojis(idx + 1)} - ${insc.tipo}: ${insc.inscricao}`;
         if (insc.endereco) {
-          msg += ` - ${insc.endereco.substring(0, 50)}${insc.endereco.length > 50 ? '...' : ''}`;
+          const enderecoNorm = this.normalizarEndereco(insc.endereco);
+          msg += ` - ${enderecoNorm.substring(0, 50)}${enderecoNorm.length > 50 ? '...' : ''}`;
         }
         msg += `\n`;
       });
@@ -221,10 +228,7 @@ class MessageHandler {
       const tipoVinculo = state.data.inscricaoSelecionada.tipo;
       let mensagemErro = `❌ Este documento não está disponível para vínculos do tipo ${tipoVinculo}.\n\n`;
 
-      if (tipoDocumento === 3 && tipoVinculo === 'EMPRESA') {
-        mensagemErro += `ℹ️ *BCI (Boletim de Cadastro Imobiliário)* só pode ser emitido para IMÓVEIS.\n`;
-        mensagemErro += `Para empresas, utilize o *BCM (Boletim de Cadastro Mercantil)*.\n\n`;
-      } else if ([4, 5, 6].includes(tipoDocumento) && tipoVinculo === 'IMÓVEL') {
+      if (tipoDocumento > 3 && tipoVinculo === 'IMÓVEL') {
         mensagemErro += `ℹ️ Este documento só pode ser emitido para EMPRESAS.\n\n`;
       }
 
@@ -237,23 +241,40 @@ class MessageHandler {
       return;
     }
 
-    if (tipoDocumento >= 1 && tipoDocumento <= 6) {
+    if (tipoDocumento >= 1 && tipoDocumento <= 5) {
       state.data.SSEOperacao = tipoDocumento.toString();
 
       // Mapear chaves por tipo de documento
-      const chaves = {
-        1: 'DC', // Demonstrativo
-        2: 'CR', // Certidão
-        3: 'BC', // BCI
-        4: 'BC', // BCM
-        5: 'AL', // Alvará
-        6: 'VS'  // VISA
-      };
+      // Para EMPRESA: 1=Demonstrativo, 2=Certidão, 3=BCM, 4=Alvará, 5=VISA
+      // Para IMÓVEL: 1=Demonstrativo, 2=Certidão, 3=BCI
+      const tipoVinculo = state.data.inscricaoSelecionada.tipo;
+      let chave = '';
 
-      state.data.SSEChave = chaves[tipoDocumento];
+      if (tipoVinculo === 'EMPRESA') {
+        const chavesEmpresa = {
+          1: 'DC', // Demonstrativo
+          2: 'CR', // Certidão
+          3: 'BC', // BCM
+          4: 'AL', // Alvará
+          5: 'VS'  // VISA
+        };
+        chave = chavesEmpresa[tipoDocumento];
+      } else if (tipoVinculo === 'IMÓVEL') {
+        const chavesImovel = {
+          1: 'DC', // Demonstrativo
+          2: 'CR', // Certidão
+          3: 'BC'  // BCI
+        };
+        chave = chavesImovel[tipoDocumento];
+      }
+
+      state.data.SSEChave = chave;
+
+      // Nome do documento baseado no tipo e vínculo
+      const nomeDocumento = docDisponivel.nome;
 
       await sock.sendMessage(sender, {
-        text: `📝 Gerando ${this.tiposDocumento[tipoDocumento]}... Aguarde um momento.`
+        text: `📝 Gerando ${nomeDocumento}... Aguarde um momento.`
       });
 
       await this.emitirDocumento(sock, sender, state);
@@ -313,7 +334,7 @@ class MessageHandler {
             msg += `   👤 Proprietário: ${insc.tipoProprietario}\n`;
           }
           if (insc.endereco) {
-            msg += `   📍 ${insc.endereco}\n`;
+            msg += `   📍 ${this.normalizarEndereco(insc.endereco)}\n`;
           }
           if (insc.possuiDebito === 'S') {
             msg += `   ⚠️ Possui débito\n`;
@@ -366,18 +387,29 @@ class MessageHandler {
         dadosDocumento
       );
 
+      // SSACodigo === 0 indica sucesso
       if (resultado.SSACodigo === 0 && resultado.SSALinkDocumento) {
-        const tipoDoc = this.tiposDocumento[state.data.SSEOperacao];
+        // Buscar nome do documento
+        const docDisponivel = state.data.documentosDisponiveis.find(
+          doc => doc.id === parseInt(state.data.SSEOperacao)
+        );
+        const nomeDoc = docDisponivel ? docDisponivel.nome : 'Documento';
+
         await sock.sendMessage(sender, {
-          text: `🎉 *${tipoDoc}* gerado com sucesso!\n\n📄 **Link do documento:** ${resultado.SSALinkDocumento}\n\n✅ Status: ${resultado.SSAMensagem}\n\n_Clique no link acima para visualizar/baixar seu documento._`,
+          text: `🎉 *${nomeDoc}* gerado com sucesso!\n\n📄 **Link do documento:** ${resultado.SSALinkDocumento}\n\n✅ Status: ${resultado.SSAMensagem}\n\n_Clique no link acima para visualizar/baixar seu documento._`,
         });
 
         // Mostrar menu pós-emissão
         await this.mostrarMenuPosEmissao(sock, sender, state);
       } else {
+        // SSACodigo !== 0 indica erro
+        const docDisponivel = state.data.documentosDisponiveis.find(
+          doc => doc.id === parseInt(state.data.SSEOperacao)
+        );
+        const nomeDoc = docDisponivel ? docDisponivel.nome : 'documento';
+
         await sock.sendMessage(sender, {
-          text: `❌ Não foi possível emitir o documento.\n\n**Motivo:** ${resultado.SSAMensagem || "Erro desconhecido"
-            }\n\nTente novamente ou entre em contato com o suporte.`,
+          text: `❌ Não foi possível emitir o ${nomeDoc}.\n\n**Motivo:** ${resultado.SSAMensagem || "Erro desconhecido"}\n\nTente novamente ou entre em contato com o suporte.`,
         });
 
         // Mostrar menu pós-emissão mesmo em caso de erro
