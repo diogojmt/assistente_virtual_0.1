@@ -84,7 +84,7 @@ class MessageHandler {
   async sendWelcomeMessage(sock, sender) {
     this.greetedUsers[sender] = true;
     await sock.sendMessage(sender, {
-      text: "Olá! Seja bem-vindo ao Assistente Virtual da Prefeitura!\n\n📋 Digite seu CPF ou CNPJ para consultar os vínculos cadastrados:"
+      text: "Olá! Seja bem-vindo ao Assistente Virtual da Prefeitura!\n\n⚠️ *ATENÇÃO:* Este chatbot está apontando para uma base de demonstração. As informações fornecidas não possuem validade jurídica.\n\n📋 Digite seu CPF ou CNPJ para consultar os vínculos cadastrados:"
     });
     this.justWelcomed[sender] = true;
   }
