@@ -5,6 +5,8 @@ const {
 } = require("@whiskeysockets/baileys");
 const qrcode = require("qrcode-terminal");
 const MessageHandler = require('../handlers/messageHandler');
+const fs = require('fs');
+const path = require('path');
 
 class WhatsAppBot {
   constructor() {
@@ -80,13 +82,29 @@ class WhatsAppBot {
       console.log("Conexão fechada:", lastDisconnect?.error?.message || "Motivo desconhecido");
       console.log("Status code:", statusCode);
 
-      if (shouldReconnect && !this.isReconnecting) {
+      if (statusCode === 401) {
+        console.log("⚠️  Erro de autenticação detectado. Limpando sessão...");
+        await this.clearAuthSession();
+        console.log("✅ Sessão limpa. Reiniciando para gerar novo QR Code...");
+        this.isReconnecting = false;
+        this.reconnectAttempts = 0;
+        setTimeout(() => this.start(), 2000);
+      } else if (shouldReconnect && !this.isReconnecting) {
         this.isReconnecting = true;
         await this.handleReconnect();
-      } else if (statusCode === 401) {
-        console.log("Erro de autenticação. Remova a pasta auth_info e reinicie.");
-        this.isReconnecting = false;
       }
+    }
+  }
+
+  async clearAuthSession() {
+    const authPath = path.join(process.cwd(), 'auth_info');
+    try {
+      if (fs.existsSync(authPath)) {
+        fs.rmSync(authPath, { recursive: true, force: true });
+        console.log("📁 Pasta auth_info removida");
+      }
+    } catch (error) {
+      console.error("Erro ao remover auth_info:", error.message);
     }
   }
 
