@@ -173,7 +173,38 @@ class DocumentService {
 
       if (error.response) {
         console.error("📡 Status da resposta:", error.response.status);
-        console.error("📄 Dados da resposta:", JSON.stringify(error.response.data, null, 2));
+        console.error("📄 Tipo de dados:", typeof error.response.data);
+
+        // Detectar erro HTML 500 e extrair mensagem técnica
+        if (error.response.status === 500) {
+          const htmlData = typeof error.response.data === 'string'
+            ? error.response.data
+            : JSON.stringify(error.response.data);
+
+          console.error("📄 Dados da resposta:", htmlData.substring(0, 500));
+
+          // Verificar se é HTML
+          if (htmlData.includes('<!DOCTYPE html') || htmlData.includes('<html>')) {
+            // Tentar extrair descrição técnica do HTML
+            const descMatch = htmlData.match(/<b>DESCRI&Ccedil;&Atilde;O:<\/b>(.*?)(?:<\/pre>|$)/s);
+            if (descMatch && descMatch[1]) {
+              const descricao = descMatch[1].trim();
+
+              // Verificar tipos específicos de erro
+              if (descricao.includes('OutOfMemoryError')) {
+                throw new Error('Servidor temporariamente indisponível (falta de memória). Tente novamente em alguns instantes.');
+              }
+
+              throw new Error(`Erro no servidor: ${descricao.substring(0, 150)}`);
+            }
+
+            // Se não conseguiu extrair, mensagem genérica para erro 500
+            throw new Error('Servidor temporariamente indisponível. Tente novamente em alguns instantes.');
+          }
+        } else {
+          console.error("📄 Dados da resposta:", JSON.stringify(error.response.data, null, 2));
+        }
+
         throw new Error(`Falha na emissão: ${error.response.data.SSAMensagem || error.response.statusText || 'Erro desconhecido'}`);
       }
 
