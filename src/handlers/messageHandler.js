@@ -8,6 +8,8 @@ class MessageHandler {
     this.invalidWarned = {};
     this.justWelcomed = {};
     this.tipoContribuinteWarned = {};
+    this.inactivityTimers = {}; // Timers de inatividade por usuário
+    this.INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutos em milissegundos (ajustável)
   }
 
   // Retorna documentos disponíveis por tipo de vínculo
@@ -47,6 +49,38 @@ class MessageHandler {
     return num.toString().split('').map(digit => emojiMap[digit]).join('');
   }
 
+  // Inicia ou reseta o timer de inatividade para um usuário
+  resetInactivityTimer(sock, sender) {
+    // Limpar timer existente se houver
+    if (this.inactivityTimers[sender]) {
+      clearTimeout(this.inactivityTimers[sender]);
+    }
+
+    // Criar novo timer
+    this.inactivityTimers[sender] = setTimeout(async () => {
+      // Verificar se o usuário ainda tem estado ativo
+      if (this.userStates[sender] || this.greetedUsers[sender]) {
+        await sock.sendMessage(sender, {
+          text: "⏱️ *Atenção:* Detectamos inatividade no atendimento.\n\n" +
+            "O atendimento será encerrado automaticamente por falta de interação.\n\n" +
+            "👋 Obrigado por utilizar nosso serviço!\n\n" +
+            "Se precisar de algo, é só me chamar novamente."
+        });
+
+        console.log(`⏱️ Atendimento encerrado por inatividade: ${sender}`);
+        this.resetUserState(sender);
+      }
+    }, this.INACTIVITY_TIMEOUT);
+  }
+
+  // Limpa o timer de inatividade de um usuário
+  clearInactivityTimer(sender) {
+    if (this.inactivityTimers[sender]) {
+      clearTimeout(this.inactivityTimers[sender]);
+      delete this.inactivityTimers[sender];
+    }
+  }
+
   // Normaliza formatação de endereços (garante que termine com estado se disponível)
   normalizarEndereco(endereco) {
     if (!endereco) return '';
@@ -64,6 +98,9 @@ class MessageHandler {
 
   async handleMessage(sock, sender, text) {
     if (!text) return;
+
+    // Resetar timer de inatividade a cada mensagem recebida
+    this.resetInactivityTimer(sock, sender);
 
     // Mensagem de boas-vindas
     if (!this.greetedUsers[sender]) {
@@ -514,6 +551,9 @@ class MessageHandler {
   }
 
   resetUserState(sender) {
+    // Limpar timer de inatividade
+    this.clearInactivityTimer(sender);
+
     delete this.userStates[sender];
     delete this.greetedUsers[sender];
     delete this.invalidWarned[sender];
