@@ -154,16 +154,30 @@ class DocumentService {
 
   async emitirDocumento(dadosDocumento) {
     try {
+      console.log("📄 Emitindo documento com dados:", JSON.stringify(dadosDocumento, null, 2));
+      console.log("🌐 URL da API:", this.apiUrl);
+
       const response = await axios.get(this.apiUrl, {
         headers: {
           DadosAPIDocumento: JSON.stringify(dadosDocumento),
         },
       });
 
+      console.log("✅ Resposta da API:", JSON.stringify(response.data, null, 2));
+      console.log("📊 Status HTTP:", response.status);
+
       return response.data;
     } catch (error) {
-      console.error("Erro ao emitir documento:", error);
-      throw new Error("Falha na emissão do documento");
+      console.error("❌ Erro ao emitir documento:", error);
+      console.error("📋 Dados enviados:", JSON.stringify(dadosDocumento, null, 2));
+
+      if (error.response) {
+        console.error("📡 Status da resposta:", error.response.status);
+        console.error("📄 Dados da resposta:", JSON.stringify(error.response.data, null, 2));
+        throw new Error(`Falha na emissão: ${error.response.data.SSAMensagem || error.response.statusText || 'Erro desconhecido'}`);
+      }
+
+      throw new Error(`Falha na emissão do documento: ${error.message}`);
     }
   }
 

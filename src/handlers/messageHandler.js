@@ -282,6 +282,7 @@ class MessageHandler {
 
       state.data.SSEOperacao = operacaoAPI;
       state.data.SSEChave = chave;
+      state.data.tipoDocumentoMenu = tipoDocumento; // Salvar ID do menu original
 
       // Nome do documento baseado no tipo e vínculo
       const nomeDocumento = docDisponivel.nome;
@@ -397,15 +398,23 @@ class MessageHandler {
         state.data.SSECPFCNPJ || ""
       );
 
+      console.log("📝 Emitindo documento para usuário:", sender);
+      console.log("📋 Tipo de documento (menu):", state.data.tipoDocumentoMenu);
+      console.log("🔑 Operação API:", state.data.SSEOperacao);
+      console.log("🏷️ Tipo de contribuinte:", state.data.SSETipoContribuinte);
+      console.log("📍 Inscrição:", state.data.SSEInscricao);
+
       const resultado = await this.documentService.emitirDocumento(
         dadosDocumento
       );
 
+      console.log("✅ Resultado da emissão:", JSON.stringify(resultado, null, 2));
+
       // SSACodigo === 0 indica sucesso
       if (resultado.SSACodigo === 0 && resultado.SSALinkDocumento) {
-        // Buscar nome do documento
+        // Buscar nome do documento usando ID do menu original
         const docDisponivel = state.data.documentosDisponiveis.find(
-          doc => doc.id === parseInt(state.data.SSEOperacao)
+          doc => doc.id === state.data.tipoDocumentoMenu
         );
         const nomeDoc = docDisponivel ? docDisponivel.nome : 'Documento';
 
@@ -418,7 +427,7 @@ class MessageHandler {
       } else {
         // SSACodigo !== 0 indica erro
         const docDisponivel = state.data.documentosDisponiveis.find(
-          doc => doc.id === parseInt(state.data.SSEOperacao)
+          doc => doc.id === state.data.tipoDocumentoMenu
         );
         const nomeDoc = docDisponivel ? docDisponivel.nome : 'documento';
 
@@ -430,10 +439,15 @@ class MessageHandler {
         await this.mostrarMenuPosEmissao(sock, sender, state);
       }
     } catch (error) {
+      console.error("❌ Erro na emissão de documento:", error);
+
       await sock.sendMessage(sender, {
-        text: `Erro ao consultar documento: ${error.message}`,
+        text: `❌ Erro ao emitir documento: ${error.message}\n\n` +
+          `Por favor, tente novamente ou entre em contato com o suporte se o problema persistir.`,
       });
-      delete this.userStates[sender];
+
+      // Mostrar menu pós-erro
+      await this.mostrarMenuPosEmissao(sock, sender, state);
     }
   }
 
